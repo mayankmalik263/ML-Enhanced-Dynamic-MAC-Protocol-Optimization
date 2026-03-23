@@ -71,7 +71,7 @@ One model for all three protocols would just average across their different thro
 
 ```bash
 pip install numpy pandas scikit-learn
-python mac_simulator.py
+python ML_MAC_opt.py
 ```
 
 Dataset generation takes around 30 seconds (300 sims × 1000 slots each), then trains and prints predictions.
