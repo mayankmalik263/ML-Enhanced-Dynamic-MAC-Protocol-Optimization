@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-
+from collections import deque
+np.random.seed(42)
  
 # PACKET CLASS
 
@@ -32,9 +33,9 @@ class MACSimulator:
 
             # Step 1: Packet arrivals (Poisson)
             for i in range(self.num_nodes):
-                if np.random.rand() < self.arrival_rate:
+                arrivals = np.random.poisson(self.arrival_rate)
+                for _ in range(arrivals):
                     self.queues[i].append(Packet(t))
-                    self.total_generated += 1
 
             transmitting_nodes = []
 
@@ -56,13 +57,25 @@ class MACSimulator:
 
                 elif self.protocol == "CSMA":
                     # sense channel (approx)
-                    if len(transmitting_nodes) == 0:
-                        transmitting_nodes.append(i)
+                    channel_busy = False
+                    for i in range(self.num_nodes):
+                        if len(self.queues[i]) == 0:
+                            continue
+
+                        if self.backoff[i] > 0:
+                            self.backoff[i] -= 1
+                            continue
+
+                        if self.protocol == "CSMA":
+                            if not channel_busy:
+                                transmitting_nodes.append(i)
+                                channel_busy = True
 
             # Step 3: Transmission outcome
             if len(transmitting_nodes) == 1:
-                node = transmitting_nodes[0]
-                packet = self.queues[node].pop(0)
+                # node = transmitting_nodes[0]
+                self.queues = [deque() for _ in range(self.num_nodes)]
+                ppacket = self.queues[node].popleft()
                 
                 self.successful_packets += 1
                 self.total_delay += (t - packet.arrival_time)
