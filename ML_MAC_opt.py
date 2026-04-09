@@ -19,7 +19,6 @@ class MACSimulator:
         self.arrival_rate = arrival_rate
         self.protocol = protocol
         self.sim_time = sim_time
-        
         self.queues = [[] for _ in range(num_nodes)]
         self.backoff = [0] * num_nodes
         
