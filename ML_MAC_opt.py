@@ -75,7 +75,7 @@ class MACSimulator:
             if len(transmitting_nodes) == 1:
                 # node = transmitting_nodes[0]
                 self.queues = [deque() for _ in range(self.num_nodes)]
-                ppacket = self.queues[node].popleft()
+                packet = self.queues[node].popleft()
                 
                 self.successful_packets += 1
                 self.total_delay += (t - packet.arrival_time)
