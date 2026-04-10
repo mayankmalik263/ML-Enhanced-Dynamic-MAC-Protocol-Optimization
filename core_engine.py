@@ -7,77 +7,78 @@ import math
 # but for this architecture, we will stick to standard physics.
 SPEED_OF_LIGHT = 300_000_000 
 
+import simpy
+import math
+
+SPEED_OF_LIGHT = 300_000_000 
+
 class SharedChannel:
-    """
-    Represents the physical air/medium that carries RF signals.
-    """
-    def __init__(self, env):
+    def __init__(self, env, logger=None):
         self.env = env
-        self.nodes = []  # List to keep track of all nodes in the network
+        self.nodes = []
+        self.logger = logger # We attach Aadya's logger here to record physical results
 
     def register_node(self, node):
-        """Attaches a node to the physical environment."""
         self.nodes.append(node)
 
     def broadcast(self, sender, packet):
-        """
-        Simulates the physical transmission of a signal across space.
-        When a node transmits, the signal travels to EVERY other node, but it arrives at different times.
-        """
-        print(f"[{self.env.now:.6f}] PHYSICAL: Node {sender.node_id} broadcasting packet {packet.packet_id}...")
-        
+        # We comment out the physical broadcast print so the logs aren't too cluttered
+        # print(f"[{self.env.now:.6f}] PHYSICAL: Node {sender.node_id} broadcasting...")
         for receiver in self.nodes:
             if receiver == sender:
-                continue # Don't send the signal to yourself
+                continue 
             
-            # 1. Calculate Euclidean distance (d)
             distance = math.hypot(sender.x - receiver.x, sender.y - receiver.y)
-            
-            # 2. Calculate propagation delay (t = d/c)
             prop_delay = distance / SPEED_OF_LIGHT
-            
-            # 3. Schedule the packet to hit the receiver's antenna in the future
             self.env.process(self._deliver_signal(receiver, packet, prop_delay))
 
     def _deliver_signal(self, receiver, packet, delay):
-        """A SimPy process that waits for the delay, then triggers the receiver."""
         yield self.env.timeout(delay)
-        receiver.receive_signal(packet)
+        # Spawn a new process on the receiver to handle the incoming wave over time
+        self.env.process(receiver.process_incoming_signal(packet))
 
 
 class NetworkNode:
-    """
-    Represents a hardware device with an antenna and coordinates.
-    """
     def __init__(self, env, node_id, x, y, channel):
         self.env = env
         self.node_id = node_id
-        
-        # Spatial Coordinates (Meters)
         self.x = x
         self.y = y
-        
-        # Attach to the physical channel
         self.channel = channel
         self.channel.register_node(self)
-
-        # Placeholder for Rajat's MAC Protocol State Machine
         self.mac_protocol = None 
         
-        # Placeholder for Aadya's Traffic Generator Queue
-        self.transmit_queue = []
+        # --- NEW COLLISION TRACKING ---
+        self.receiving_signals = 0
+        self.corrupted_reception = False
 
-    def receive_signal(self, packet):
-        """
-        Triggered by the SharedChannel when RF energy hits this node's antenna.
-        """
-        # We just pass the physical signal up to the MAC layer (Rajat's code)
+    def process_incoming_signal(self, packet):
+        """A SimPy process that tracks overlapping signals."""
+        self.receiving_signals += 1
+        
+        # If we are already receiving a signal, and another one hits, it's a collision!
+        if self.receiving_signals > 1:
+            self.corrupted_reception = True
+
+        # Pass it to Rajat's MAC layer so it knows the channel is busy
         if self.mac_protocol:
             self.mac_protocol.handle_incoming_signal(packet)
-        else:
-            print(f"[{self.env.now:.6f}] PHYSICAL: Node {self.node_id} received signal from {packet.sender_id}, but has no MAC protocol to process it.")
 
+        # Wait for the entire packet to physically pass over the antenna
+        packet_duration = (packet.size * 8) / 1_000_000 # Assuming 1 Mbps transmission rate
+        yield self.env.timeout(packet_duration)
 
+        # The packet has finished passing over the antenna
+        self.receiving_signals -= 1
+
+        # If the antenna is now quiet, check if the reception was clean
+        if self.receiving_signals == 0:
+            if self.corrupted_reception:
+                if self.channel.logger: self.channel.logger.collisions += 1
+                self.corrupted_reception = False
+            else:
+                if self.channel.logger: self.channel.logger.successful_tx += 1
+                
 class DummyPacket:
     """Temporary packet class until Rajat/Aadya build theirs."""
     def __init__(self, sender_id, packet_id):
