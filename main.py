@@ -3,6 +3,7 @@ import random
 import pandas as pd
 from core_engine import SharedChannel, NetworkNode
 from protocols import CSMACaProtocol, SlottedAlohaProtocol, Packet
+from ml_pipeline import predict_optimal_protocol
 
 class DataLogger:
     """Aadya's module to collect metrics during the simulation."""
@@ -48,40 +49,62 @@ def bursty_traffic_generator(env, node, base_rate, logger):
 
 # --- MASTER SIMULATION BOOTSTRAP ---
 if __name__ == "__main__":
-    print("Initializing Research Simulator (Scale Test)...")
+    print("Initializing Research Simulator with ML Control...")
     env = simpy.Environment()
-    channel = SharedChannel(env)
     logger = DataLogger(env)
+    channel = SharedChannel(env, logger=logger)
     
-    # 1. Deploy a network of 10 nodes randomly placed in a 500x500 meter grid
     nodes = []
-    NUM_NODES = 10
-    BASE_ARRIVAL_RATE = 200 # Packets per second
+    NUM_NODES = 50          # High load scenario
+    BASE_ARRIVAL_RATE = 400 # High traffic
     
+    print("\n[PHASE 1] Starting network with baseline protocol (PureALOHA)...")
     for i in range(NUM_NODES):
         x_pos = random.randint(0, 500)
         y_pos = random.randint(0, 500)
         
         new_node = NetworkNode(env, node_id=str(i), x=x_pos, y=y_pos, channel=channel)
-        
-        # ASSIGN PROTOCOL HERE (Swap between CSMACaProtocol and SlottedAlohaProtocol to test)
-        new_node.mac_protocol = CSMACaProtocol(new_node) 
+        # We purposely start with a bad protocol for high load
+        new_node.mac_protocol = SlottedAlohaProtocol(new_node) 
         nodes.append(new_node)
         
-        # Start traffic generator for EVERY node
         env.process(bursty_traffic_generator(env, new_node, BASE_ARRIVAL_RATE, logger))
     
-    # Run simulation for 1 full second
-    sim_duration = 1.0
-    env.run(until=sim_duration)
+    # Run the simulation for just 0.2 seconds to gather baseline stats
+    env.run(until=0.2)
     
-    # Print Aadya's Metrics
-    throughput, col_rate = logger.calculate_metrics(sim_duration)
-    print("\n--- SIMULATION RESULTS ---")
-    print(f"Total Nodes: {NUM_NODES}")
-    print(f"Protocol: {type(nodes[0].mac_protocol).__name__}")
+    # Ask Aadya's logger how the network is doing
+    current_throughput, current_collision_rate = logger.calculate_metrics(0.2)
+    print(f"--> Baseline Collision Rate: {current_collision_rate:.2%}")
+    
+    # --- ML INTERVENTION POINT ---
+    print("\n[PHASE 2] Pausing simulation. Asking ML Classifier for optimal protocol...")
+    current_network_state = {
+        'nodes': NUM_NODES,
+        'arrival_rate': BASE_ARRIVAL_RATE,
+        'collision_rate': current_collision_rate,
+        'delay': 0.1,        # Placeholder until delay tracking is added
+        'queue_variance': 5.0 # Placeholder
+    }
+    
+    best_protocol_name = predict_optimal_protocol(current_network_state)
+    print(f"--> ML Model Decision: Switch entire network to {best_protocol_name}")
+    
+    # Apply the AI's decision
+    if best_protocol_name == "CSMA/CA":
+        print("--> Executing Dynamic Protocol Swap to CSMA/CA...")
+        for node in nodes:
+            node.mac_protocol = CSMACaProtocol(node)
+    
+    # --- RESUME SIMULATION ---
+    print("\n[PHASE 3] Resuming simulation with new protocol...")
+    env.run(until=1.0) # Run for the remaining 0.8 seconds
+    
+    # Final Results
+    final_throughput, final_col_rate = logger.calculate_metrics(1.0)
+    print("\n--- FINAL SIMULATION RESULTS ---")
     print(f"Packets Generated: {logger.total_generated}")
+    print(f"Successful Deliveries: {logger.successful_tx}")
+    print(f"Collisions: {logger.collisions}")
     print("--------------------------")
-    print(f"Throughput (Pkts/sec): {throughput:.2f}")
-    print(f"Collision Rate: {col_rate:.2%}")
-    print("Note: Success/Collision tracking needs to be wired into physical antenna logic next.")
+    print(f"Final Collision Rate: {final_col_rate:.2%}")
