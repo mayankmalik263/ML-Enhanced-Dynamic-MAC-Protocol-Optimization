@@ -3,11 +3,12 @@ import random
 
 # --- PACKET DEFINITIONS ---
 class Packet:
-    def __init__(self, sender, dest, p_type="DATA", size=1500):
+    def __init__(self, sender, dest, packet_id, p_type="DATA", size=1500): # <-- packet_id MUST be right here
         self.sender = sender
         self.dest = dest
-        self.p_type = p_type # "RTS", "CTS", "DATA", "ACK"
-        self.size = size     # Bytes
+        self.packet_id = packet_id
+        self.p_type = p_type 
+        self.size = size
 
 class SlottedAlohaProtocol:
     """
