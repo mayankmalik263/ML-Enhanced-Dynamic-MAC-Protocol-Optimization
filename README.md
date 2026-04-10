@@ -1,4 +1,3 @@
-```markdown
 # ML-Enhanced Dynamic MAC Protocol Optimization
 
 A continuous-time, physics-aware Discrete-Event Simulation (DES) framework that models MAC-layer protocols (Slotted ALOHA, CSMA/CA) and utilizes an ensemble Machine Learning classifier to dynamically optimize protocol selection in real-time based on varying network loads.
@@ -33,7 +32,6 @@ The monolithic time-stepped loop has been entirely replaced by a modular, contin
 ├── main.py              # The master simulation loop demonstrating dynamic ML protocol swapping
 ├── plot_results.py      # Seaborn visualization module (95% CI graphs, Decision Boundary Heatmaps)
 └── README.md
-```
 
 ### The Physics Engine (`core_engine.py`)
 Unlike basic simulators that assume instant communication, this engine assigns `(X, Y)` coordinates to nodes and calculates exact propagation delays using the speed of light. Receiver antennas dynamically track overlapping RF waves to calculate true physical collisions, accurately simulating the Hidden Terminal Problem.
