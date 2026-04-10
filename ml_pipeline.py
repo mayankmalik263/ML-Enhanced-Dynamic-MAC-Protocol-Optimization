@@ -77,7 +77,11 @@ def train_classifier_model(df):
     accuracy = accuracy_score(y_test, predictions)
     print(f"Model Accuracy on Test Set: {accuracy * 100:.2f}%")
     print("\nClassification Report:")
-    print(classification_report(y_test, predictions, target_names=["PureALOHA", "SlottedALOHA", "CSMA/CA"]))
+        # Dynamically find which protocols actually won in this dataset
+    unique_classes = sorted(list(set(y_test) | set(predictions)))
+    present_target_names = [PROTOCOL_MAP[c] for c in unique_classes]
+        
+    print(classification_report(y_test, predictions, labels=unique_classes, target_names=present_target_names))
     
     # 6. Save the trained model to disk so the simulator can use it later
     joblib.dump(model, 'mac_protocol_selector.pkl')
@@ -109,22 +113,9 @@ def predict_optimal_protocol(features_dict):
 
 # --- EXECUTION BLOCK ---
 if __name__ == "__main__":
-    # 1. Generate Fake Data (Replace this with real CSV loading later)
-    dataset = generate_dummy_training_data()
+    print("Loading REAL simulation data...")
+    # Read the CSV we just generated
+    real_dataset = pd.read_csv("real_network_data.csv")
     
-    # 2. Train and Save
-    trained_model = train_classifier_model(dataset)
-    
-    # 3. Test a Real-Time Prediction
-    current_network_state = {
-        'nodes': 50,
-        'arrival_rate': 0.8,      # High load
-        'collision_rate': 0.6,    # High collisions
-        'delay': 0.2,
-        'queue_variance': 5.5
-    }
-    
-    print("\n--- Live Inference Test ---")
-    print(f"Current Conditions: {current_network_state}")
-    decision = predict_optimal_protocol(current_network_state)
-    print(f"--> AI Decision Engine Selects: {decision}")
+    # Train the Random Forest on the real physics data
+    trained_model = train_classifier_model(real_dataset)
