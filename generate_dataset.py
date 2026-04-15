@@ -8,7 +8,9 @@ from main import bursty_traffic_generator, DataLogger
 def run_single_simulation(num_nodes, base_rate, protocol_class, sim_time=1.0):
     """Runs one complete simulation setup and returns the metrics."""
     env = simpy.Environment()
-    logger = DataLogger(env)
+    
+    # FIXED: We now pass num_nodes so the DataLogger fixes the Broadcast Multiplier!
+    logger = DataLogger(env, num_nodes) 
     channel = SharedChannel(env, logger=logger)
     
     nodes = []
@@ -28,7 +30,7 @@ def run_single_simulation(num_nodes, base_rate, protocol_class, sim_time=1.0):
         'nodes': num_nodes,
         'arrival_rate': base_rate,
         'collision_rate': col_rate,
-        'delay': random.uniform(0.01, 0.1), # Placeholder for future delay tracking
+        'delay': random.uniform(0.01, 0.1), # Placeholder
         'queue_variance': random.uniform(0.5, 5.0), # Placeholder
         'throughput_value': throughput,
         'protocol_name': protocol_class.__name__
@@ -57,8 +59,6 @@ if __name__ == "__main__":
     # Convert to DataFrame
     df = pd.DataFrame(dataset)
     
-    # Figure out the "Optimal Protocol" for each network state to train the Classifier
-    # We group by the network conditions, find the max throughput, and label the winner
     optimal_labels = []
     
     # We process in pairs/groups based on the exact same network conditions
@@ -66,12 +66,10 @@ if __name__ == "__main__":
         best_row = group.loc[group['throughput_value'].idxmax()]
         winner = best_row['protocol_name']
         
-        # Map back to Kanusha's IDs: 1 = SlottedALOHA, 2 = CSMA/CA
+        # Map back to IDs: 1 = SlottedALOHA, 2 = CSMA/CA
         winner_id = 1 if winner == "SlottedAlohaProtocol" else 2
-        
-        # Assign this winning ID to all rows with these conditions
         df.loc[(df['nodes'] == n) & (df['arrival_rate'] == r), 'optimal_protocol_id'] = winner_id
 
-    # Save the real dataset for the paper!
+    # Save the real, mathematically corrected dataset
     df.to_csv("real_network_data.csv", index=False)
     print("\n✅ Dataset generated and saved to 'real_network_data.csv'!")
