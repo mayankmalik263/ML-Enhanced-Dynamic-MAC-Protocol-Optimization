@@ -74,10 +74,10 @@ class NetworkNode:
         # If the antenna is now quiet, check if the reception was clean
         if self.receiving_signals == 0:
             if self.corrupted_reception:
-                if self.channel.logger: self.channel.logger.collisions += 1
+                if self.channel.logger: self.channel.logger.raw_collisions += 1
                 self.corrupted_reception = False
             else:
-                if self.channel.logger: self.channel.logger.successful_tx += 1
+                if self.channel.logger: self.channel.logger.raw_successful_tx += 1
                 
 class DummyPacket:
     """Temporary packet class until Rajat/Aadya build theirs."""
